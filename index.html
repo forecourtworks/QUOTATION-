@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0D478C" />
+  <title>Forecourt Works Ltd | Quotation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --navy: #0D478C;
+      --navy-dark: #0d264d;
+      --accent: #b45309;
+      --success: #166534;
+      --danger: #b91c1c;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --soft: #f1f5f9;
+      --radius: 10px;
+      --shadow: 0 4px 14px rgba(13, 71, 140, 0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      padding-bottom: 100px;
+    }
+    .app-header {
+      background: linear-gradient(135deg, #0D478C 0%, #0d264d 100%);
+      color: white;
+      padding: 16px 20px 18px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+    }
+    .app-header h1 { font-size: 1.2rem; font-weight: 700; }
+    .app-header p { font-size: 0.78rem; opacity: 0.85; margin-top: 2px; }
+    .container { max-width: 960px; margin: 0 auto; padding: 16px; }
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      padding: 16px 18px;
+      margin-bottom: 14px;
+    }
+    .card h2 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--navy);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--navy);
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    @media (max-width: 700px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+    label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.92rem;
+      font-family: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--navy);
+      box-shadow: 0 0 0 3px rgba(13,71,140,0.12);
+    }
+    textarea { resize: vertical; min-height: 64px; }
+    .field { margin-bottom: 10px; }
+
+    /* Items table */
+    .items-table { width: 100%; border-collapse: collapse; }
+    .item-row {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fafbfc;
+      position: relative;
+    }
+    .item-row .row-num {
+      position: absolute;
+      top: 10px; left: 10px;
+      background: var(--navy);
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 700;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .item-row .item-body { margin-left: 28px; }
+    .item-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      align-items: center;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      transition: 0.15s;
+    }
+    .btn-primary { background: var(--navy); color: white; }
+    .btn-primary:hover { background: #0a3a70; }
+    .btn-accent { background: var(--accent); color: white; }
+    .btn-accent:hover { filter: brightness(0.92); }
+    .btn-ghost {
+      background: white;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-ghost:hover { background: var(--soft); }
+    .btn-danger {
+      background: #fef2f2;
+      color: var(--danger);
+      border: 1px solid #fecaca;
+    }
+    .btn-sm { padding: 6px 10px; font-size: 0.75rem; }
+    .btn-add {
+      width: 100%;
+      justify-content: center;
+      border: 2px dashed #94a3b8;
+      background: white;
+      color: var(--navy);
+      padding: 12px;
+      margin-top: 4px;
+    }
+    .btn-add:hover { border-color: var(--navy); background: #eff6ff; }
+
+    .img-preview {
+      width: 64px; height: 64px;
+      object-fit: contain;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #0a0a0a;
+      display: none;
+    }
+    .img-preview.show { display: block; }
+
+    /* Summary live */
+    .live-summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 700px) { .live-summary { grid-template-columns: 1fr; } }
+    .summary-box {
+      background: var(--soft);
+      border-radius: 10px;
+      padding: 14px;
+      border-left: 4px solid var(--navy);
+    }
+    .summary-box.payment { border-left: none; border-right: 4px solid var(--navy); text-align: right; }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 0.88rem;
+    }
+    .summary-row.final {
+      background: var(--navy);
+      color: white;
+      margin: 8px -6px -6px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .payment-block h4 {
+      font-size: 0.72rem;
+      color: var(--navy);
+      margin: 8px 0 2px;
+      text-transform: uppercase;
+    }
+    .payment-block p { font-size: 0.78rem; color: var(--text); line-height: 1.35; }
+
+    /* Terms */
+    .term-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .term-row .num {
+      background: var(--navy);
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 700;
+      min-width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 8px;
+    }
+    .term-row input { flex: 1; }
+
+    /* Signatures */
+    .sig-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 800px) { .sig-grid { grid-template-columns: 1fr; } }
+    .sig-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fafbfc;
+    }
+    .sig-card h3 {
+      font-size: 0.78rem;
+      color: var(--navy);
+      margin-bottom: 6px;
+      text-align: center;
+    }
+    .sig-canvas-wrap {
+      border: 1px dashed #94a3b8;
+      border-radius: 8px;
+      background: white;
+      touch-action: none;
+    }
+    .sig-canvas-wrap canvas {
+      width: 100%;
+      height: 110px;
+      display: block;
+      border-radius: 8px;
+    }
+    .sig-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .sig-name { margin-top: 6px; }
+
+    /* Sticky footer */
+    .app-footer {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: white;
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      z-index: 90;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+    }
+    .app-footer .btn { min-width: 140px; justify-content: center; padding: 12px 18px; }
+
+    .toast {
+      position: fixed;
+      top: 70px; right: 16px;
+      background: var(--navy);
+      color: white;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      z-index: 200;
+      display: none;
+      box-shadow: var(--shadow);
+    }
+    .toast.show { display: block; animation: fade 0.3s; }
+    @keyframes fade { from { opacity: 0; transform: translateY(-8px); } }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <h1>FORECOURT WORKS LIMITED</h1>
+    <p>Quotation Builder · Engineering Reliability Into Every Forecourt</p>
+  </header>
+
+  <div class="container">
+    <!-- Meta -->
+    <div class="card">
+      <h2>Quotation Details</h2>
+      <div class="grid-3">
+        <div class="field">
+          <label>Quotation No</label>
+          <input id="qtNo" value="QT#00067" />
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="qtDate" />
+        </div>
+        <div class="field">
+          <label>Quotation Type</label>
+          <select id="qtType">
+            <option>Parts Only</option>
+            <option>Labour Only</option>
+            <option>Labour &amp; Parts</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="field">
+          <label>Customer</label>
+          <input id="customer" value="PETROSOMA · SALGAA" />
+        </div>
+        <div class="field">
+          <label>Requested By</label>
+          <input id="requestedBy" value="ISAAK" />
+        </div>
+        <div class="field">
+          <label>Prepared By</label>
+          <input id="preparedBy" value="ECK" />
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Approved By</label>
+          <input id="approvedBy" value="K. O" />
+        </div>
+        <div class="field">
+          <label>Section Title (Scope)</label>
+          <input id="scopeTitle" value="SUPPLY OF MOTOR CONTROL &amp; PROTECTION SYSTEM" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Live commercial summary -->
+    <div class="card">
+      <h2>Cost Summary &amp; Payment (auto-computed)</h2>
+      <div class="live-summary">
+        <div class="summary-box">
+          <div class="summary-row"><span>Sub Total</span><strong id="sumSub">0.00</strong></div>
+          <div class="summary-row">
+            <span>Discount Allowed</span>
+            <input type="number" id="discount" value="0" min="0" step="0.01" style="width:110px;text-align:right;padding:4px 8px;" />
+          </div>
+          <div class="summary-row"><span>Taxable Sub Total</span><strong id="sumTaxable">0.00</strong></div>
+          <div class="summary-row">
+            <span>Tax % / Amount</span>
+            <span style="display:flex;gap:6px;align-items:center;">
+              <input type="number" id="taxRate" value="0" min="0" step="0.01" style="width:60px;padding:4px 6px;" title="Tax %" />
+              <strong id="sumTax">0.00</strong>
+            </span>
+          </div>
+          <div class="summary-row final"><span>Final Amount Payable</span><span id="sumFinal">KES 0.00</span></div>
+        </div>
+        <div class="summary-box payment payment-block">
+          <h4>For Bank Payment</h4>
+          <p>FORECOURT SUPPLIES AND WORKS LTD<br>
+          Diamond Trust Bank (DTB) | Bank Code: 063 | Branch: TRM<br>
+          Account: 0766-364-001</p>
+          <h4>For Paybill Payment</h4>
+          <p>Paybill No: 516600 | A/C No. 0766364001</p>
+          <h4>For Direct Mpesa Deposit</h4>
+          <p>Mpesa No: 0729-002-087 | Reg Name: Elizabeth Kamando</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Items -->
+    <div class="card">
+      <h2>Items</h2>
+      <div id="itemsList"></div>
+      <button type="button" class="btn btn-add" id="btnAddItem">+ ADD ITEM</button>
+
+      <div style="margin-top:16px;">
+        <h2 style="font-size:0.8rem;border:none;padding:0;margin-bottom:8px;">Labour</h2>
+        <div class="grid-2">
+          <div class="field">
+            <label>Labour Description</label>
+            <input id="labourDesc" value="Installation" />
+          </div>
+          <div class="field">
+            <label>Labour Amount (KES)</label>
+            <input type="number" id="labourAmt" value="7500" min="0" step="0.01" />
+          </div>
+        </div>
+        <h2 style="font-size:0.8rem;border:none;padding:0;margin:12px 0 8px;">Travel / Delivery</h2>
+        <div class="grid-2">
+          <div class="field">
+            <label>Travel Description</label>
+            <input id="travelDesc" value="Technician Travel — Nairobi to Salgaa (2 × RETURN @ 1,100.00)" />
+          </div>
+          <div class="field">
+            <label>Travel Amount (KES)</label>
+            <input type="number" id="travelAmt" value="2200" min="0" step="0.01" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Important note -->
+    <div class="card">
+      <h2>Important Note</h2>
+      <textarea id="importantNote" rows="3">A formal approval of this quotation is required before we can raise a work order or sales order and commence work. Please provide your written confirmation to Ms. Elizabeth Chenga · Mobile: 0729 002 087 · Email: sales@forecourtworks.co.ke</textarea>
+    </div>
+
+    <!-- Terms -->
+    <div class="card">
+      <h2>Terms &amp; Conditions</h2>
+      <div id="termsList"></div>
+      <button type="button" class="btn btn-add" id="btnAddTerm">+ ADD TERMS</button>
+    </div>
+
+    <!-- Signatures -->
+    <div class="card">
+      <h2>Signatures</h2>
+      <div class="sig-grid">
+        <div class="sig-card">
+          <h3>Quotation Creator</h3>
+          <div class="sig-canvas-wrap"><canvas id="sigCreator"></canvas></div>
+          <div class="sig-actions">
+            <button type="button" class="btn btn-ghost btn-sm" data-clear="sigCreator">Clear</button>
+            <label class="btn btn-ghost btn-sm">Attach<input type="file" accept="image/*" data-sigfile="sigCreator" class="hidden" /></label>
+          </div>
+          <div class="sig-name field">
+            <label>Name</label>
+            <input id="sigCreatorName" placeholder="Creator name" />
+          </div>
+        </div>
+        <div class="sig-card">
+          <h3>Quotation Approver</h3>
+          <div class="sig-canvas-wrap"><canvas id="sigApprover"></canvas></div>
+          <div class="sig-actions">
+            <button type="button" class="btn btn-ghost btn-sm" data-clear="sigApprover">Clear</button>
+            <label class="btn btn-ghost btn-sm">Attach<input type="file" accept="image/*" data-sigfile="sigApprover" class="hidden" /></label>
+          </div>
+          <div class="sig-name field">
+            <label>Name</label>
+            <input id="sigApproverName" placeholder="Approver name" />
+          </div>
+        </div>
+        <div class="sig-card">
+          <h3>Client Acceptance</h3>
+          <div class="sig-canvas-wrap"><canvas id="sigClient"></canvas></div>
+          <div class="sig-actions">
+            <button type="button" class="btn btn-ghost btn-sm" data-clear="sigClient">Clear</button>
+            <label class="btn btn-ghost btn-sm">Attach<input type="file" accept="image/*" data-sigfile="sigClient" class="hidden" /></label>
+          </div>
+          <div class="sig-name field">
+            <label>Name</label>
+            <input id="sigClientName" placeholder="Client name" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-footer">
+    <button type="button" class="btn btn-ghost" id="btnReset">Reset</button>
+    <button type="button" class="btn btn-primary" id="btnPdf">Generate PDF</button>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="fsw-pdf-theme.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
