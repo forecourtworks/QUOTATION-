@@ -253,6 +253,9 @@
       border-radius: 8px;
       background: white;
       touch-action: none;
+      position: relative;
+      height: 110px;
+      overflow: hidden;
     }
     .sig-canvas-wrap canvas {
       width: 100%;
@@ -260,6 +263,20 @@
       display: block;
       border-radius: 8px;
     }
+    .sig-canvas-wrap .sig-preview {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #fff;
+      border-radius: 8px;
+      display: none;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .sig-canvas-wrap .sig-preview.show { display: block; }
+    .sig-canvas-wrap.has-file canvas { visibility: hidden; }
     .sig-actions {
       display: flex;
       gap: 6px;
@@ -439,7 +456,10 @@
       <div class="sig-grid">
         <div class="sig-card">
           <h3>Quotation Creator</h3>
-          <div class="sig-canvas-wrap"><canvas id="sigCreator"></canvas></div>
+          <div class="sig-canvas-wrap" id="wrap-sigCreator">
+            <canvas id="sigCreator"></canvas>
+            <img class="sig-preview" id="preview-sigCreator" alt="Creator signature" />
+          </div>
           <div class="sig-actions">
             <button type="button" class="btn btn-ghost btn-sm" data-clear="sigCreator">Clear</button>
             <label class="btn btn-ghost btn-sm">Attach<input type="file" accept="image/*" data-sigfile="sigCreator" class="hidden" /></label>
@@ -451,7 +471,10 @@
         </div>
         <div class="sig-card">
           <h3>Quotation Approver</h3>
-          <div class="sig-canvas-wrap"><canvas id="sigApprover"></canvas></div>
+          <div class="sig-canvas-wrap" id="wrap-sigApprover">
+            <canvas id="sigApprover"></canvas>
+            <img class="sig-preview" id="preview-sigApprover" alt="Approver signature" />
+          </div>
           <div class="sig-actions">
             <button type="button" class="btn btn-ghost btn-sm" data-clear="sigApprover">Clear</button>
             <label class="btn btn-ghost btn-sm">Attach<input type="file" accept="image/*" data-sigfile="sigApprover" class="hidden" /></label>
@@ -463,7 +486,10 @@
         </div>
         <div class="sig-card">
           <h3>Client Acceptance</h3>
-          <div class="sig-canvas-wrap"><canvas id="sigClient"></canvas></div>
+          <div class="sig-canvas-wrap" id="wrap-sigClient">
+            <canvas id="sigClient"></canvas>
+            <img class="sig-preview" id="preview-sigClient" alt="Client signature" />
+          </div>
           <div class="sig-actions">
             <button type="button" class="btn btn-ghost btn-sm" data-clear="sigClient">Clear</button>
             <label class="btn btn-ghost btn-sm">Attach<input type="file" accept="image/*" data-sigfile="sigClient" class="hidden" /></label>

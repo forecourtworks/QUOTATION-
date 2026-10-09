@@ -13,6 +13,7 @@
   const OUTER = 8;
   const MARGIN = 13;
 
+  const STORAGE_KEY = 'fsw_quotation_v1';
   let items = [];
   let terms = [];
   let itemIdSeq = 1;
@@ -20,6 +21,8 @@
   const pads = {};
   const sigFiles = { sigCreator: null, sigApprover: null, sigClient: null };
   let logoDataUrl = null;
+  let saveTimer = null;
+  let suppressSave = false;
 
   // ---------- helpers ----------
   function $(id) { return document.getElementById(id); }
@@ -150,10 +153,11 @@
       items = items.filter(x => x.id !== Number(b.dataset.rm));
       renderItems();
       recalc();
+      scheduleSave();
     }));
     list.querySelectorAll('[data-rmimg]').forEach(b => b.addEventListener('click', () => {
       const it = items.find(x => x.id === Number(b.dataset.rmimg));
-      if (it) { it.imageDataUrl = null; renderItems(); }
+      if (it) { it.imageDataUrl = null; renderItems(); scheduleSave(); }
     }));
     list.querySelectorAll('input[type=file][data-img]').forEach(inp => {
       inp.addEventListener('change', async (e) => {
@@ -166,6 +170,7 @@
           url = await removeBackground(url);
           it.imageDataUrl = url;
           renderItems();
+          scheduleSave();
           toast('Image attached (background cleaned)');
         } catch (_) {
           toast('Could not load image');
@@ -188,6 +193,7 @@
       if (totalInp) totalInp.value = money(it.qty * it.cost);
       recalc();
     }
+    scheduleSave();
   }
 
   function escapeAttr(s) {
@@ -223,11 +229,13 @@
         const row = e.target.closest('.term-row');
         const t = terms.find(x => x.id === Number(row.dataset.id));
         if (t) t.text = e.target.value;
+        scheduleSave();
       });
     });
     list.querySelectorAll('[data-rmterm]').forEach(b => b.addEventListener('click', () => {
       terms = terms.filter(x => x.id !== Number(b.dataset.rmterm));
       renderTerms();
+      scheduleSave();
     }));
   }
 
@@ -850,8 +858,175 @@
     toast('PDF generated: ' + fname);
   }
 
-  // ---------- init ----------
+  // ---------- persistence ----------
+  const FIELD_IDS = [
+    'qtNo', 'qtDate', 'qtType', 'customer', 'requestedBy', 'preparedBy',
+    'approvedBy', 'scopeTitle', 'labourDesc', 'labourAmt', 'travelDesc',
+    'travelAmt', 'discount', 'taxRate', 'importantNote',
+    'sigCreatorName', 'sigApproverName', 'sigClientName'
+  ];
+
+  const DEFAULT_FIELDS = {
+    qtNo: 'QT#00067',
+    qtType: 'Parts Only',
+    customer: 'PETROSOMA · SALGAA',
+    requestedBy: 'ISAAK',
+    preparedBy: 'ECK',
+    approvedBy: 'K. O',
+    scopeTitle: 'SUPPLY OF MOTOR CONTROL & PROTECTION SYSTEM',
+    labourDesc: 'Installation',
+    labourAmt: '7500',
+    travelDesc: 'Technician Travel — Nairobi to Salgaa (2 × RETURN @ 1,100.00)',
+    travelAmt: '2200',
+    discount: '0',
+    taxRate: '0',
+    importantNote: 'A formal approval of this quotation is required before we can raise a work order or sales order and commence work. Please provide your written confirmation to Ms. Elizabeth Chenga · Mobile: 0729 002 087 · Email: sales@forecourtworks.co.ke',
+    sigCreatorName: '',
+    sigApproverName: '',
+    sigClientName: ''
+  };
+
+  function showSigPreview(id, dataUrl) {
+    const img = $('preview-' + id);
+    const wrap = $('wrap-' + id);
+    if (!img || !wrap) return;
+    if (dataUrl) {
+      img.src = dataUrl;
+      img.classList.add('show');
+      wrap.classList.add('has-file');
+    } else {
+      img.removeAttribute('src');
+      img.classList.remove('show');
+      wrap.classList.remove('has-file');
+    }
+  }
+
+  function clearSignature(id) {
+    if (pads[id]) pads[id].clear();
+    sigFiles[id] = null;
+    showSigPreview(id, null);
+    scheduleSave();
+  }
+
+  function setAttachedSignature(id, dataUrl) {
+    sigFiles[id] = dataUrl || null;
+    if (pads[id]) pads[id].clear();
+    showSigPreview(id, dataUrl);
+    scheduleSave();
+  }
+
+  function collectState() {
+    const fields = {};
+    FIELD_IDS.forEach(id => {
+      const el = $(id);
+      if (el) fields[id] = el.value;
+    });
+    const signatures = {};
+    ['sigCreator', 'sigApprover', 'sigClient'].forEach(id => {
+      if (sigFiles[id]) {
+        signatures[id] = { type: 'file', data: sigFiles[id] };
+      } else if (pads[id] && !pads[id].isEmpty()) {
+        signatures[id] = { type: 'pad', data: pads[id].toDataURL('image/png') };
+      } else {
+        signatures[id] = null;
+      }
+    });
+    return {
+      version: 1,
+      fields,
+      items: items.map(it => ({
+        id: it.id,
+        name: it.name,
+        description: it.description,
+        qty: it.qty,
+        unit: it.unit,
+        cost: it.cost,
+        imageDataUrl: it.imageDataUrl
+      })),
+      terms: terms.map(t => ({ id: t.id, text: t.text })),
+      itemIdSeq,
+      termIdSeq,
+      signatures
+    };
+  }
+
+  function scheduleSave() {
+    if (suppressSave) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveState, 250);
+  }
+
+  function saveState() {
+    if (suppressSave) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState()));
+    } catch (err) {
+      console.warn('Could not save quotation state', err);
+    }
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function applyFields(fields) {
+    if (!fields) return;
+    FIELD_IDS.forEach(id => {
+      const el = $(id);
+      if (el && fields[id] !== undefined && fields[id] !== null) {
+        el.value = fields[id];
+      }
+    });
+  }
+
+  function applySignatures(signatures) {
+    if (!signatures) return;
+    ['sigCreator', 'sigApprover', 'sigClient'].forEach(id => {
+      const s = signatures[id];
+      if (!s || !s.data) {
+        sigFiles[id] = null;
+        showSigPreview(id, null);
+        if (pads[id]) pads[id].clear();
+        return;
+      }
+      if (s.type === 'file') {
+        setAttachedSignature(id, s.data);
+      } else {
+        // drawn pad — restore onto canvas
+        sigFiles[id] = null;
+        showSigPreview(id, null);
+        if (pads[id]) {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = $(id);
+            const ctx = canvas.getContext('2d');
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.scale(ratio, ratio);
+            ctx.drawImage(img, 0, 0, canvas.width / ratio, canvas.height / ratio);
+            // Keep as file-equivalent so getSigDataUrl works after restore
+            sigFiles[id] = s.data;
+            showSigPreview(id, s.data);
+          };
+          img.src = s.data;
+        } else {
+          sigFiles[id] = s.data;
+          showSigPreview(id, s.data);
+        }
+      }
+    });
+  }
+
   function seedSample() {
+    itemIdSeq = 1;
+    termIdSeq = 1;
     items = [
       {
         id: itemIdSeq++,
@@ -860,9 +1035,7 @@
         qty: 1, unit: 'PC', cost: 7500, imageDataUrl: null
       }
     ];
-    // only one default row as requested — user can add more
     terms = [defaultTerm()];
-    // add a couple extra default commercial terms (still one was required; extras help UX)
     terms.push({
       id: termIdSeq++,
       text: 'Prices are quoted in Kenya Shillings (KES) and are exclusive of any applicable taxes unless shown above.'
@@ -877,43 +1050,124 @@
     });
   }
 
+  function applyDefaultsToForm() {
+    suppressSave = true;
+    Object.keys(DEFAULT_FIELDS).forEach(id => {
+      const el = $(id);
+      if (el) el.value = DEFAULT_FIELDS[id];
+    });
+    const dateEl = $('qtDate');
+    if (dateEl) dateEl.value = todayISO();
+    ['sigCreator', 'sigApprover', 'sigClient'].forEach(id => {
+      if (pads[id]) pads[id].clear();
+      sigFiles[id] = null;
+      showSigPreview(id, null);
+    });
+    suppressSave = false;
+  }
+
+  function hardReset() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+    suppressSave = true;
+    seedSample();
+    applyDefaultsToForm();
+    renderItems();
+    renderTerms();
+    recalc();
+    suppressSave = false;
+    saveState();
+  }
+
+  function restoreOrSeed() {
+    const state = loadState();
+    suppressSave = true;
+    if (state && state.version === 1) {
+      itemIdSeq = state.itemIdSeq || 1;
+      termIdSeq = state.termIdSeq || 1;
+      items = Array.isArray(state.items) && state.items.length
+        ? state.items.map(it => ({
+            id: it.id,
+            name: it.name || '',
+            description: it.description || '',
+            qty: Number(it.qty) || 1,
+            unit: it.unit || 'PC',
+            cost: Number(it.cost) || 0,
+            imageDataUrl: it.imageDataUrl || null
+          }))
+        : null;
+      if (!items) seedSample();
+      terms = Array.isArray(state.terms) && state.terms.length
+        ? state.terms.map(t => ({ id: t.id, text: t.text || '' }))
+        : null;
+      if (!terms) {
+        terms = [defaultTerm()];
+        terms.push({
+          id: termIdSeq++,
+          text: 'Prices are quoted in Kenya Shillings (KES) and are exclusive of any applicable taxes unless shown above.'
+        });
+        terms.push({
+          id: termIdSeq++,
+          text: 'Delivery / installation lead time will be confirmed upon receipt of formal purchase order / written approval.'
+        });
+        terms.push({
+          id: termIdSeq++,
+          text: 'Ownership of goods remains with Forecourt Works Limited until full payment is received.'
+        });
+      }
+      applyFields(state.fields || {});
+      if (!$('qtDate').value) $('qtDate').value = todayISO();
+      renderItems();
+      renderTerms();
+      recalc();
+      suppressSave = false;
+      // signatures after pads exist
+      return state.signatures || null;
+    }
+    seedSample();
+    applyDefaultsToForm();
+    renderItems();
+    renderTerms();
+    recalc();
+    suppressSave = false;
+    return null;
+  }
+
   function bind() {
-    $('qtDate').value = todayISO();
     $('btnAddItem').addEventListener('click', () => {
       items.push(defaultItem());
       renderItems();
       recalc();
+      scheduleSave();
     });
     $('btnAddTerm').addEventListener('click', () => {
       terms.push({ id: termIdSeq++, text: '' });
       renderTerms();
+      scheduleSave();
     });
     ['labourAmt', 'travelAmt', 'discount', 'taxRate'].forEach(id => {
-      $(id).addEventListener('input', recalc);
+      $(id).addEventListener('input', () => { recalc(); scheduleSave(); });
+    });
+    FIELD_IDS.forEach(id => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('input', scheduleSave);
+      el.addEventListener('change', scheduleSave);
     });
     $('btnPdf').addEventListener('click', () => {
+      saveState();
       generatePdf().catch(err => {
         console.error(err);
         toast('PDF error: ' + (err.message || err));
       });
     });
     $('btnReset').addEventListener('click', () => {
-      if (!confirm('Reset form to defaults?')) return;
-      seedSample();
-      renderItems();
-      renderTerms();
-      recalc();
-      Object.keys(pads).forEach(k => pads[k].clear());
-      Object.keys(sigFiles).forEach(k => { sigFiles[k] = null; });
-      toast('Form reset');
+      if (!confirm('Reset form to defaults? All entered data will be cleared.')) return;
+      hardReset();
+      toast('Form reset to defaults');
     });
 
     document.querySelectorAll('[data-clear]').forEach(b => {
-      b.addEventListener('click', () => {
-        const id = b.dataset.clear;
-        if (pads[id]) pads[id].clear();
-        sigFiles[id] = null;
-      });
+      b.addEventListener('click', () => clearSignature(b.dataset.clear));
     });
     document.querySelectorAll('[data-sigfile]').forEach(inp => {
       inp.addEventListener('change', async (e) => {
@@ -921,24 +1175,40 @@
         const file = e.target.files && e.target.files[0];
         if (!file) return;
         try {
-          sigFiles[id] = await fileToDataUrl(file);
-          if (pads[id]) pads[id].clear();
+          const url = await fileToDataUrl(file);
+          setAttachedSignature(id, url);
           toast('Signature image attached');
         } catch (_) {
           toast('Could not attach signature');
         }
+        inp.value = '';
+      });
+    });
+
+    // persist pad strokes shortly after drawing stops
+    ['sigCreator', 'sigApprover', 'sigClient'].forEach(id => {
+      const canvas = $(id);
+      if (!canvas) return;
+      ['mouseup', 'touchend', 'pointerup'].forEach(ev => {
+        canvas.addEventListener(ev, () => scheduleSave());
       });
     });
   }
 
+  // Hook item/term edits to save
+  const _renderItems = renderItems;
+  // patch save into existing item field handler via scheduleSave calls below
+
   function init() {
-    seedSample();
-    renderItems();
-    renderTerms();
-    recalc();
+    const pendingSigs = restoreOrSeed();
     bind();
     ['sigCreator', 'sigApprover', 'sigClient'].forEach(initPad);
+    if (pendingSigs) {
+      // slight delay so canvas sizing is ready
+      setTimeout(() => applySignatures(pendingSigs), 50);
+    }
     loadLogo();
+    window.addEventListener('beforeunload', saveState);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
